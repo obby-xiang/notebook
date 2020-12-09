@@ -7,6 +7,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.obby.demo.model.Question;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -40,6 +41,7 @@ public class FetchLeetcodeProblemsetApplication {
     @Bean
     public CommandLineRunner run() throws Exception {
         return args -> {
+            logger.info("Starting...");
             logger.info("Question slugs fetching...");
 
             List<String> questionSlugs = fetchQuestionSlugs();
@@ -67,8 +69,8 @@ public class FetchLeetcodeProblemsetApplication {
                 question.setSolutions(new ArrayList<>());
 
                 for (int j = 0; j < solutionSlugs.size(); j++) {
-                    logger.info("Question: " + (i + 1) + "/" + questionSlugs.size() + "."
-                            + "    Solution: " + (j + 1) + "/" + solutionSlugs.size() + ".");
+                    logger.info("Solution: " + (j + 1) + "/" + solutionSlugs.size() + "."
+                            + "    Question: " + (i + 1) + "/" + questionSlugs.size() + ".");
 
                     String solutionSlug = solutionSlugs.get(j);
 
@@ -113,6 +115,10 @@ public class FetchLeetcodeProblemsetApplication {
         List<String> slugs = new ArrayList<>();
 
         for (JsonElement obj : data) {
+            if (obj.getAsJsonObject().get("paid_only").getAsBoolean()) {
+                continue;
+            }
+
             slugs.add(obj.getAsJsonObject().getAsJsonObject("stat").get("question__title_slug").getAsString());
         }
 
@@ -328,7 +334,9 @@ public class FetchLeetcodeProblemsetApplication {
                 gson.toJson(body)
         );
 
-        JsonArray data = body.getAsJsonObject("data").getAsJsonObject("questionSolutionArticles").getAsJsonArray("edges");
+        JsonArray data = body.getAsJsonObject("data")
+                .getAsJsonObject("questionSolutionArticles")
+                .getAsJsonArray("edges");
         List<String> slugs = new ArrayList<>();
 
         for (JsonElement obj : data) {
@@ -456,26 +464,10 @@ public class FetchLeetcodeProblemsetApplication {
         return gson.fromJson(data, Question.Solution.class);
     }
 
-    void mkdir(File file) throws Exception {
-        if (!file.getParentFile().exists()) {
-            mkdir(file.getParentFile());
-        }
-
-        Files.createDirectory(file.toPath());
-    }
-
     Path basePath(String path) throws Exception {
-        File dir = new File("storage");
+        File file = new File("storage/" + path);
 
-        if (!dir.exists()) {
-            Files.createDirectory(dir.toPath());
-        }
-
-        File file = new File(dir.getPath() + "/" + path);
-
-        if (!file.getParentFile().exists()) {
-            mkdir(file.getParentFile());
-        }
+        FileUtils.forceMkdirParent(file);
 
         return file.toPath();
     }
