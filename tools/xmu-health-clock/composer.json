@@ -17,7 +17,8 @@
         "laravel/telescope": "^4.3",
         "laravel/tinker": "^2.5",
         "laravel/ui": "^3.1",
-        "symfony/dom-crawler": "^5.2"
+        "symfony/dom-crawler": "^5.2",
+        "ext-json": "*"
     },
     "require-dev": {
         "facade/ignition": "^2.5",

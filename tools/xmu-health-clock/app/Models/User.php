@@ -11,15 +11,21 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
+    protected $keyType = 'uuid';
+
+    public $incrementing = false;
+
     /**
      * The attributes that are mass assignable.
      *
      * @var array
      */
     protected $fillable = [
-        'name',
+        'id',
+        'username',
         'email',
         'password',
+        'auto_health_clock',
     ];
 
     /**
@@ -38,6 +44,6 @@ class User extends Authenticatable
      * @var array
      */
     protected $casts = [
-        'email_verified_at' => 'datetime',
+        'auto_health_clock' => 'bool',
     ];
 }
