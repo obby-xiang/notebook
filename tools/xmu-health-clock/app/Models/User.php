@@ -23,9 +23,10 @@ class User extends Authenticatable
     protected $fillable = [
         'id',
         'username',
-        'email',
         'password',
-        'auto_health_clock',
+        'email',
+        'auto_clock',
+        'cookie',
     ];
 
     /**
@@ -35,7 +36,7 @@ class User extends Authenticatable
      */
     protected $hidden = [
         'password',
-        'remember_token',
+        'cookie',
     ];
 
     /**
@@ -44,6 +45,6 @@ class User extends Authenticatable
      * @var array
      */
     protected $casts = [
-        'auto_health_clock' => 'bool',
+        'auto_clock' => 'bool',
     ];
 }

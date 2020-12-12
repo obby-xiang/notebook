@@ -21,19 +21,19 @@ class Kernel extends ConsoleKernel
     /**
      * Define the application's command schedule.
      *
-     * @param \Illuminate\Console\Scheduling\Schedule $schedule
+     * @param  \Illuminate\Console\Scheduling\Schedule  $schedule
      * @return void
      */
     protected function schedule(Schedule $schedule)
     {
         $schedule->call(function () {
-            User::query()->where('auto_health_clock', '=', true)
+            User::query()->where('auto_clock', '=', true)
                 ->get()
                 ->shuffle()
                 ->each(function ($user) {
-                    HealthClock::dispatch($user)->delay(now()->addMinutes(rand(0, 120))->addSeconds(rand(0, 60)));
+                    HealthClock::dispatch($user)/*->delay(now()->addMinutes(rand(0, 120))->addSeconds(rand(0, 60)))*/;
                 });
-        })->dailyAt('10:00');
+        })->dailyAt('08:00');
     }
 
     /**
@@ -43,7 +43,7 @@ class Kernel extends ConsoleKernel
      */
     protected function commands()
     {
-        $this->load(__DIR__ . '/Commands');
+        $this->load(__DIR__.'/Commands');
 
         require base_path('routes/console.php');
     }
