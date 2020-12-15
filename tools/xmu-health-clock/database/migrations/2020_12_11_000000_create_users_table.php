@@ -18,7 +18,7 @@ class CreateUsersTable extends Migration
             $table->string('username')->unique();
             $table->string('password');
             $table->string('email')->nullable();
-            $table->boolean('auto_clock')->default(true);
+            $table->boolean('auto_clock')->default(false);
             $table->text('cookie')->nullable();
             $table->timestamps();
         });

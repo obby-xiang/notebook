@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -47,4 +48,14 @@ class User extends Authenticatable
     protected $casts = [
         'auto_clock' => 'bool',
     ];
+
+    /**
+     * Health clocks.
+     *
+     * @return HasMany has many
+     */
+    public function healthClocks(): HasMany
+    {
+        return $this->hasMany(HealthClock::class, 'user_id', 'id');
+    }
 }

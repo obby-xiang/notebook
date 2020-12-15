@@ -11,16 +11,16 @@ class HealthClock extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    protected $status;
+    protected $healthClock;
 
     /**
      * Create a new notification instance.
      *
-     * @return void
+     * @param  \App\Models\HealthClock  $healthClock  healthClock
      */
-    public function __construct($status)
+    public function __construct(\App\Models\HealthClock $healthClock)
     {
-        $this->status = $status;
+        $this->healthClock = $healthClock;
     }
 
     /**
@@ -34,13 +34,6 @@ class HealthClock extends Notification implements ShouldQueue
         return ['mail'];
     }
 
-    /*public function viaQueues()
-    {
-        return [
-            'mail' => 'emails',
-        ];
-    }*/
-
     /**
      * Get the mail representation of the notification.
      *
@@ -50,8 +43,8 @@ class HealthClock extends Notification implements ShouldQueue
     public function toMail($notifiable)
     {
         return (new MailMessage)
-            ->subject("Clocked {$this->status}.")
-            ->line("Clocked {$this->status}.");
+            ->subject("Clocked {$this->healthClock->status}.")
+            ->line($this->healthClock->message);
     }
 
     /**

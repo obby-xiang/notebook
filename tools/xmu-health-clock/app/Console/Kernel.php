@@ -6,6 +6,7 @@ use App\Jobs\HealthClock;
 use App\Models\User;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use Illuminate\Support\Str;
 
 class Kernel extends ConsoleKernel
 {
@@ -30,8 +31,16 @@ class Kernel extends ConsoleKernel
             User::query()->where('auto_clock', '=', true)
                 ->get()
                 ->shuffle()
-                ->each(function ($user) {
-                    HealthClock::dispatch($user)/*->delay(now()->addMinutes(rand(0, 120))->addSeconds(rand(0, 60)))*/;
+                ->each(function (User $user) {
+                    $exceptedClockedAt = now()->addMinutes(rand(0, 120))->addSeconds(rand(0, 60));
+
+                    $clock = $user->healthClocks()->create([
+                        'id' => Str::orderedUuid()->toString(),
+                        'status' => 'pending',
+                        'excepted_clocked_at' => $exceptedClockedAt->toString(),
+                    ]);
+
+                    HealthClock::dispatch($clock)->delay($exceptedClockedAt);
                 });
         })->dailyAt('08:00');
     }

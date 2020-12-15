@@ -7,9 +7,9 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\RequestOptions;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Symfony\Component\DomCrawler\Crawler;
 
 class HealthClock
@@ -57,14 +57,15 @@ class HealthClock
     /**
      * Login.
      *
-     * @return bool true if success, otherwise false
      * @throws GuzzleException exception
      */
-    public function login(): bool
+    public function login()
     {
         if ($this->authed()) {
-            return true;
+            return;
         }
+
+        $this->cookies->clear();
 
         $form = (new Crawler(
             $this->client->get('http://ids.xmu.edu.cn/authserver/login?service=https://xmuxg.xmu.edu.cn/login/cas/xmu')
@@ -84,7 +85,7 @@ class HealthClock
                     ],
                 ]
             )->getBody()->getContents() === 'true') {
-            return false;
+            throw new RuntimeException('Captcha required.');
         }
 
         $this->client->post('https://ids.xmu.edu.cn/authserver/login?service=https://xmuxg.xmu.edu.cn/login/cas/xmu', [
@@ -95,29 +96,26 @@ class HealthClock
             RequestOptions::FORM_PARAMS => $form,
         ]);
 
-        if ($this->authed()) {
-            if (!$this->standalone) {
-                if (is_null($this->user->id)) {
-                    $this->user->id = Str::orderedUuid()->toString();
-                }
-
-                $this->user->cookie = json_encode($this->cookies->toArray());
-                $this->user->save();
-            }
-
-            return true;
+        if (!$this->authed()) {
+            throw new RuntimeException('Login failed.');
         }
 
-        return false;
+        if (!$this->standalone) {
+            if (is_null($this->user->id)) {
+                $this->user->id = Str::orderedUuid()->toString();
+            }
+
+            $this->user->cookie = json_encode($this->cookies->toArray());
+            $this->user->save();
+        }
     }
 
     /**
      * Logout.
      *
-     * @return bool true if success, otherwise false
      * @throws GuzzleException exception
      */
-    public function logout(): bool
+    public function logout()
     {
         if ($this->authed()) {
             $this->client->get('https://ids.xmu.edu.cn/authserver/logout?service=https://xmuxg.xmu.edu.cn/xmu/login', [
@@ -126,18 +124,21 @@ class HealthClock
                     'referer' => 'https://xmuxg.xmu.edu.cn/',
                 ],
             ]);
+
+            if ($this->authed()) {
+                throw new RuntimeException('Logout failed.');
+            }
         }
 
-        return !$this->authed();
+        $this->cookies->clear();
     }
 
     /**
      * Clock.
      *
-     * @return bool true if success, otherwise false
      * @throws GuzzleException exception
      */
-    public function clock(): bool
+    public function clock()
     {
         $business = json_decode($this->client->get('https://xmuxg.xmu.edu.cn/api/app/214/business/now?getFirst=true', [
             RequestOptions::HEADERS => [
@@ -145,54 +146,43 @@ class HealthClock
             ],
         ])->getBody()->getContents())->data[0]->business;
 
-        $ownerNode = collect($business->businessTimeList)->filter(function ($item) {
-            return $item->nodeId === 'owner';
-        })->first();
-
-        if ($ownerNode->startDate == null || Carbon::parse($ownerNode->startDate)->isFuture()) {
-            return false;
-        }
-
-        $deadline = $ownerNode->endDate ?? $business->endTime;
-
-        if ($deadline == null || Carbon::parse($deadline)->isPast()) {
-            return false;
-        }
-
         $instance = json_decode($this->client->get("https://xmuxg.xmu.edu.cn/api/formEngine/business/{$business->id}/myFormInstance",
             [
                 RequestOptions::HEADERS => [
                     'referer' => 'https://xmuxg.xmu.edu.cn/app/214',
                 ],
-            ])->getBody()->getContents())->data;
+            ]
+        )->getBody()->getContents())->data;
 
-        $fills = [
-            'select_1584240106785' => ['stringValue' => '是'], // 学生本人是否填写
-            'select_1582538939790' => ['stringValue' => '是 Yes'], // 本人是否承诺所填报的全部内容均属实、准确，不存在任何隐瞒和不实的情况，更无遗漏之处
-        ];
+        if (!$instance->editable) {
+            throw new RuntimeException('Clock forbidden.');
+        }
 
-        $formData = collect($instance->formData)->filter(function ($item) use ($fills) {
-            return in_array($item->name, array_keys($fills));
-        })->map(function ($item) use ($fills) {
-            $item->value = $fills[$item->name];
+        collect($instance->formData)->firstWhere('name', 'select_1584240106785')
+            ->value->stringValue = '是'; // 学生本人是否填写
 
-            return $item;
-        })->values()->toArray();
+        collect($instance->formData)->firstWhere('name', 'select_1582538939790')
+            ->value->stringValue = '是 Yes'; // 本人是否承诺所填报的全部内容均属实、准确，不存在任何隐瞒和不实的情况，更无遗漏之处
 
-        $this->client->post("https://xmuxg.xmu.edu.cn/api/formEngine/formInstance/{$instance->id}", [
-            RequestOptions::HEADERS => [
-                'origin' => 'https://xmuxg.xmu.edu.cn',
-                'referer' => 'https://xmuxg.xmu.edu.cn/app/214',
-            ],
-            RequestOptions::JSON => [
-                'formData' => $formData,
-                'playerId' => 'owner',
-            ],
-        ]);
+        $resData = json_decode($this->client->post("https://xmuxg.xmu.edu.cn/api/formEngine/formInstance/{$instance->id}",
+            [
+                RequestOptions::HEADERS => [
+                    'origin' => 'https://xmuxg.xmu.edu.cn',
+                    'referer' => 'https://xmuxg.xmu.edu.cn/app/214',
+                ],
+                RequestOptions::JSON => [
+                    'formData' => $instance->formData,
+                    'playerId' => 'owner',
+                ],
+            ]
+        )->getBody()->getContents())->data;
 
-        // todo: validate
-
-        return true;
+        if (collect($resData->formData)->firstWhere('name', 'select_1584240106785')
+                ->value->stringValue !== '是'
+            || collect($resData->formData)->firstWhere('name', 'select_1582538939790')
+                ->value->stringValue !== '是 Yes') {
+            throw new RuntimeException('Clock failed.');
+        }
     }
 
     /**

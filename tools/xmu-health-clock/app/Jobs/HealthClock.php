@@ -2,52 +2,65 @@
 
 namespace App\Jobs;
 
-use App\Models\User;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class HealthClock implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected $user;
+    public $healthClock;
 
     /**
      * Create a new job instance.
      *
-     * @param  User  $user
+     * @param  \App\Models\HealthClock  $healthClock  health clock
      */
-    public function __construct(User $user)
+    public function __construct(\App\Models\HealthClock $healthClock)
     {
-        $this->user = $user;
+        $this->healthClock = $healthClock;
     }
 
     /**
      * Execute the job.
      *
      * @return void
+     * @throws GuzzleException exception
      */
     public function handle()
     {
-        $status = 'failed';
+        $clock = new \App\Support\HealthClock($this->healthClock->user, true);
 
-        try {
-            $healthClock = new \App\Support\HealthClock($this->user, true);
+        $clock->login();
+        $clock->clock();
 
-            if ($healthClock->login() && $healthClock->clock()) {
-                $status = 'success';
-            }
-        } catch (Throwable $e) {
-            Log::error($e);
-        }
+        $this->healthClock->update([
+            'status' => 'success',
+            'message' => 'Clock success.',
+            'clocked_at' => now()->toString(),
+        ]);
 
-        if (!is_null($this->user->email)) {
-            $this->user->notify(new \App\Notifications\HealthClock($status));
-        }
+        $this->healthClock->user->notify(new \App\Notifications\HealthClock($this->healthClock));
+    }
+
+    /**
+     * Job failed.
+     *
+     * @param  Throwable  $exception  exception
+     */
+    public function failed(Throwable $exception)
+    {
+        $this->healthClock->update([
+            'status' => 'failed',
+            'message' => "Clock failed.\n{$exception->getMessage()}",
+            'clocked_at' => now()->toString(),
+        ]);
+
+        $this->healthClock->user->notify(new \App\Notifications\HealthClock($this->healthClock));
     }
 }
