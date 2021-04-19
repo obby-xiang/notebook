@@ -39,7 +39,7 @@ public class FetchLeetcodeProblemsetApplication {
     }
 
     @Bean
-    public CommandLineRunner run() throws Exception {
+    public CommandLineRunner run() {
         return args -> {
             logger.info("Starting...");
             logger.info("Question slugs fetching...");
@@ -99,7 +99,7 @@ public class FetchLeetcodeProblemsetApplication {
      * @return all question slugs
      * @throws Exception exception
      */
-    List<String> fetchQuestionSlugs() throws Exception {
+    private List<String> fetchQuestionSlugs() throws Exception {
         JsonObject body = gson.fromJson(
                 restTemplate.getForEntity("https://leetcode-cn.com/api/problems/all/", String.class)
                         .getBody(),
@@ -132,7 +132,7 @@ public class FetchLeetcodeProblemsetApplication {
      * @return question
      * @throws Exception exception
      */
-    Question fetchQuestion(String slug) throws Exception {
+    private Question fetchQuestion(String slug) throws Exception {
         JsonObject body = gson.fromJson(
                 restTemplate.exchange(
                         RequestEntity.post("https://leetcode-cn.com/graphql/")
@@ -240,7 +240,7 @@ public class FetchLeetcodeProblemsetApplication {
      * @return all solution slugs
      * @throws Exception exception
      */
-    List<String> fetchSolutionSlugs(String questionSlug) throws Exception {
+    private List<String> fetchSolutionSlugs(String questionSlug) throws Exception {
         JsonObject body = gson.fromJson(
                 restTemplate.exchange(
                         RequestEntity.post("https://leetcode-cn.com/graphql/")
@@ -354,7 +354,7 @@ public class FetchLeetcodeProblemsetApplication {
      * @return solution
      * @throws Exception exception
      */
-    Question.Solution fetchSolution(String questionSlug, String slug) throws Exception {
+    private Question.Solution fetchSolution(String questionSlug, String slug) throws Exception {
         JsonObject body = gson.fromJson(
                 restTemplate.exchange(
                         RequestEntity.post("https://leetcode-cn.com/graphql/")
@@ -464,7 +464,7 @@ public class FetchLeetcodeProblemsetApplication {
         return gson.fromJson(data, Question.Solution.class);
     }
 
-    Path basePath(String path) throws Exception {
+    private Path basePath(String path) throws Exception {
         File file = new File("storage/" + path);
 
         FileUtils.forceMkdirParent(file);
